@@ -112,7 +112,6 @@ class MysApi(_MysApi):
                     header["x-rpc-device_fp"] = fp
                 header["x-rpc-device_model"] = "Mi 10"
                 header["x-rpc-sys_version"] = "12"
-                header["User-Agent"] = "okhttp/4.8.0"
         except asyncio.TimeoutError:
             logger.warning("[sr_api] 注入设备头超时，跳过")
 
