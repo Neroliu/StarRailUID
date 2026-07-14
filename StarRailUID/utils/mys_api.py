@@ -116,6 +116,14 @@ class MysApi(_MysApi):
         except asyncio.TimeoutError:
             logger.warning("[sr_api] 注入设备头超时，跳过")
 
+    async def _build_sr_header(self, uid: str, ck: Optional[str] = None) -> Dict:
+        """构建完整的SR请求头（含设备信息），用于直接调用_mys_request，避免框架覆盖UA。"""
+        header = copy.deepcopy(self._HEADER)
+        if ck:
+            header["Cookie"] = ck
+        await self.add_sr_device_headers(header, uid)
+        return header
+
     async def simple_sr_req(
         self,
         URL: str,
@@ -273,38 +281,32 @@ class MysApi(_MysApi):
     async def get_avatar_info(
         self, uid: str, avatar_id: int, need_wiki: bool = False
     ) -> Union[AvatarInfo, int]:
+        params = {
+            "need_wiki": "true" if need_wiki else "false",
+            "role_id": uid,
+            "server": RECOGNIZE_SERVER.get(str(uid)[0], "prod_gf_cn"),
+        }
         if self.check_os(uid, game_name="sr"):
-            HEADER = copy.deepcopy(self._HEADER_OS)
             ck = await self.get_sr_ck(uid, "OWNER")
             if ck is None:
                 return -51
-            HEADER["Cookie"] = ck
-            HEADER["DS"] = generate_os_ds()
-            header = HEADER
-            os_server = "prod_official_asia"
-            data = await self.simple_sr_req(
-                "STAR_RAIL_AVATAR_INFO_URL",
-                uid,
-                params={
-                    "need_wiki": "true" if need_wiki else "false",
-                    "role_id": uid,
-                    "server": RECOGNIZE_SERVER.get(str(uid)[0], os_server),
-                },
-                header=header,
-            )
+            header = copy.deepcopy(self._HEADER_OS)
+            header["Cookie"] = ck
+            header["DS"] = generate_os_ds()
+            header["x-rpc-language"] = "zh-cn"
+            url = _API["STAR_RAIL_AVATAR_INFO_URL_OS"]
+            params["server"] = RECOGNIZE_SERVER.get(str(uid)[0], "prod_official_asia")
+            data = await self._mys_request(url, "GET", header, params=params, use_proxy=True)
         else:
-            params = {
-                "need_wiki": "true" if need_wiki else "false",
-                "role_id": uid,
-                "server": RECOGNIZE_SERVER.get(str(uid)[0], "prod_gf_cn"),
-            }
-            # if avatar_id:  # Only include id param if specific avatar requested
-                # params["id"] = avatar_id
-            data = await self.simple_sr_req(
-                "STAR_RAIL_AVATAR_INFO_URL",
-                uid,
-                params=params,
-                header=self._HEADER,
+            ck = await self.get_sr_ck(uid, "OWNER")
+            if ck is None:
+                return -51
+            header = await self._build_sr_header(uid, ck)
+            header["DS"] = get_ds_token(
+                "&".join(f"{k}={v}" for k, v in sorted(params.items()))
+            )
+            data = await self._mys_request(
+                _API["STAR_RAIL_AVATAR_INFO_URL"], "GET", header, params=params
             )
         if isinstance(data, Dict):
             normalized_data = _normalize_mys_avatar_payload(data["data"])
@@ -728,7 +730,20 @@ class MysApi(_MysApi):
         self,
         sr_uid: str,
     ) -> Union[RoleBasicInfo, int]:
-        data = await self.simple_sr_req("STAR_RAIL_ROLE_BASIC_INFO_URL", sr_uid, header=self._HEADER)
+        params = {
+            "role_id": sr_uid,
+            "server": RECOGNIZE_SERVER.get(str(sr_uid)[0], "prod_gf_cn"),
+        }
+        ck = await self.get_sr_ck(sr_uid, "OWNER")
+        if ck is None:
+            return -51
+        header = await self._build_sr_header(sr_uid, ck)
+        header["DS"] = get_ds_token(
+            "&".join(f"{k}={v}" for k, v in sorted(params.items()))
+        )
+        data = await self._mys_request(
+            _API["STAR_RAIL_ROLE_BASIC_INFO_URL"], "GET", header, params=params
+        )
         if isinstance(data, Dict):
             data = msgspec.convert(data["data"], type=RoleBasicInfo)
         return data
