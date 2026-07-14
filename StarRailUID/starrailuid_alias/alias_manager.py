@@ -79,11 +79,12 @@ def resolve_char_id(name: str) -> Optional[str]:
 
 
 def get_canonical_name(char_id: str) -> Optional[str]:
-    """获取角色的标准名称：优先别名表第一个，兜底 avatarId2Name。"""
+    """获取角色的标准名称：优先 avatarId2Name，兜底别名表第一个。"""
+    std = SR_MAP_PATH.avatarId2Name.get(char_id)
+    if std:
+        return std
     aliases = _merged_aliases.get(char_id)
-    if aliases:
-        return aliases[0]
-    return SR_MAP_PATH.avatarId2Name.get(char_id)
+    return aliases[0] if aliases else None
 
 
 def get_alias_list(char_id: str) -> List[str]:
