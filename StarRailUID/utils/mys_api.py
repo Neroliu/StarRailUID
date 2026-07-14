@@ -110,9 +110,9 @@ class MysApi(_MysApi):
                 fp = await self.get_user_fp(uid, "sr")
                 if fp is not None:
                     header["x-rpc-device_fp"] = fp
-                header.setdefault("x-rpc-device_model", "Mi 10")
-                header.setdefault("x-rpc-sys_version", "12")
-                header.setdefault("User-Agent", "okhttp/4.8.0")
+                header["x-rpc-device_model"] = "Mi 10"
+                header["x-rpc-sys_version"] = "12"
+                header["User-Agent"] = "okhttp/4.8.0"
         except asyncio.TimeoutError:
             logger.warning("[sr_api] 注入设备头超时，跳过")
 
