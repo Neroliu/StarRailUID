@@ -11,6 +11,13 @@ from ..utils.resource.RESOURCE_PATH import MAIN_PATH
 
 USER_ALIAS_PATH: Path = MAIN_PATH / "user_char_aliases.json"
 
+# 补充内置缺失的别名条目（角色无内置别名时的默认值）
+_DEFAULT_ALIASES: Dict[str, List[str]] = {
+    "1413": ["长夜月", "永夜"],
+    "1414": ["丹恒•腾荒", "腾荒", "丹恒腾荒", "物理丹恒", "丹恒腾"],
+    "1415": ["昔涟"],
+}
+
 # 运行时缓存：合并后的别名表 {char_id: [alias1, alias2, ...]}
 _merged_aliases: Dict[str, List[str]] = {}
 
@@ -35,13 +42,22 @@ def _save_user_aliases(data: Dict[str, List[str]]) -> None:
 
 
 def reload_aliases() -> None:
-    """重新加载并合并内置别名 + 用户别名。"""
+    """重新加载并合并内置别名 + 默认别名 + 用户别名。"""
     global _merged_aliases
     _merged_aliases = {}
 
     # 内置别名
     for char_id, alias_list in model.CharAlias.get("characters", {}).items():
         _merged_aliases[char_id] = list(alias_list)
+
+    # 默认别名（补充内置缺失的条目）
+    for char_id, defaults in _DEFAULT_ALIASES.items():
+        if char_id not in _merged_aliases:
+            _merged_aliases[char_id] = list(defaults)
+        else:
+            for a in defaults:
+                if a not in _merged_aliases[char_id]:
+                    _merged_aliases[char_id].append(a)
 
     # 用户别名追加
     user_aliases = _load_user_aliases()
@@ -107,7 +123,8 @@ def remove_user_alias(char_id: str, alias: str) -> bool:
 def is_builtin_alias(char_id: str, alias: str) -> bool:
     """检查是否为内置别名（不可删除）。"""
     builtin = model.CharAlias.get("characters", {}).get(char_id, [])
-    return alias in builtin
+    defaults = _DEFAULT_ALIASES.get(char_id, [])
+    return alias in builtin or alias in defaults
 
 
 # 模块加载时初始化
