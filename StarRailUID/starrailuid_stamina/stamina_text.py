@@ -1,9 +1,12 @@
-from typing import List
+from typing import List, Union
 
 from gsuid_core.logger import logger
 
+from ..starrailuid_config.sr_config import srconfig
 from ..utils.error_reply import get_error
 from ..utils.mys_api import mys_api
+
+use_widget = srconfig.get_config("WidgetResin").data
 
 daily_im = """*数据刷新可能存在一定延迟,请以当前游戏实际数据为准
 ==============
@@ -21,7 +24,15 @@ def seconds2hours(seconds: int) -> str:
 
 async def get_stamina_text(uid: str) -> str:
     try:
-        dailydata = await mys_api.get_sr_daily_data(uid)
+        # 优先使用小组件API（带设备信息，不易触发验证码）
+        dailydata: Union[int, object] = -1
+        if use_widget and int(str(uid)[0]) <= 5:
+            dailydata = await mys_api.get_widget_stamina_data(uid)
+            if isinstance(dailydata, int):
+                logger.warning(f"[当前状态]小组件API失败({dailydata})，回退到普通API")
+        # 小组件未启用或失败时，回退到普通API
+        if isinstance(dailydata, int):
+            dailydata = await mys_api.get_sr_daily_data(uid)
         if isinstance(dailydata, int):
             return get_error(dailydata)
         max_stamina = dailydata.max_stamina
