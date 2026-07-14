@@ -86,7 +86,7 @@ async def _get_char_info(bot: Bot, ev: Event, text: str):
         uid = await get_uid(bot, ev, GsBind, "sr", False, pattern=r"\d{9}")
     else:
         uid = await get_uid(bot, ev, GsBind, "sr", pattern=r"\d{9}")
-        msg = " ".join(re.findall("[\u4e00-\u9fa5]+", text))
+        msg = text.strip()
     if uid is None:
         return await bot.send(UID_HINT)
     logger.info(f"[查询角色面板]uid: {uid}")

@@ -1,3 +1,4 @@
+import asyncio
 import copy
 import time
 from typing import Any, Dict, Literal, Optional, Tuple, Union
@@ -100,12 +101,20 @@ class MysApi(_MysApi):
         return await self.get_ck(uid, mode, "sr")
 
     async def add_sr_device_headers(self, header: Dict, uid: str) -> None:
-        device_id = await self.get_user_device_id(uid, "sr")
-        if device_id:
-            header["x-rpc-device_id"] = device_id
-        fp = await self.get_user_fp(uid, "sr")
-        if fp:
-            header["x-rpc-device_fp"] = fp
+        """为战绩API注入设备信息头，降低验证码触发概率。"""
+        try:
+            async with asyncio.timeout(5):
+                device_id = await self.get_user_device_id(uid, "sr")
+                if device_id is not None:
+                    header["x-rpc-device_id"] = device_id
+                fp = await self.get_user_fp(uid, "sr")
+                if fp is not None:
+                    header["x-rpc-device_fp"] = fp
+                header.setdefault("x-rpc-device_model", "Mi 10")
+                header.setdefault("x-rpc-sys_version", "12")
+                header.setdefault("User-Agent", "okhttp/4.8.0")
+        except asyncio.TimeoutError:
+            logger.warning("[sr_api] 注入设备头超时，跳过")
 
     async def simple_sr_req(
         self,
@@ -115,6 +124,9 @@ class MysApi(_MysApi):
         header: Dict = {},  # noqa: B006
         cookie: Optional[str] = None,
     ) -> Union[Dict, int]:
+        if isinstance(uid, str):
+            header = copy.deepcopy(header)
+            await self.add_sr_device_headers(header, uid)
         return await self.simple_mys_req(
             URL,
             uid,
