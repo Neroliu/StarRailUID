@@ -12,6 +12,7 @@ from gsuid_core.utils.api.mys.tools import (
     mys_version,
 )
 from gsuid_core.utils.api.mys_api import _MysApi
+from gsuid_core.utils.database.models import GsUser
 
 from ..sruid_utils.api.mys.api import _API
 from ..sruid_utils.api.mys.models import (
@@ -110,8 +111,13 @@ class MysApi(_MysApi):
                 fp = await self.get_user_fp(uid, "sr")
                 if fp is not None:
                     header["x-rpc-device_fp"] = fp
-                header["x-rpc-device_model"] = "Mi 10"
-                header["x-rpc-sys_version"] = "12"
+                # 从数据库读取设备信息
+                device_info = await GsUser.get_user_attr_by_uid(uid, "device_info", "sr")
+                if device_info and "/" in device_info:
+                    header["x-rpc-device_model"] = device_info.split("/")[1]
+                else:
+                    header["x-rpc-device_model"] = "Mi 10"
+                header["x-rpc-sys_version"] = "13"
         except asyncio.TimeoutError:
             logger.warning("[sr_api] 注入设备头超时，跳过")
 
