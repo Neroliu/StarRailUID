@@ -1,3 +1,4 @@
+import asyncio
 import copy
 import time
 from typing import Any, Dict, Literal, Optional, Tuple, Union
@@ -11,6 +12,7 @@ from gsuid_core.utils.api.mys.tools import (
     mys_version,
 )
 from gsuid_core.utils.api.mys_api import _MysApi
+from gsuid_core.utils.database.models import GsUser
 
 from ..sruid_utils.api.mys.api import _API
 from ..sruid_utils.api.mys.models import (
@@ -100,12 +102,32 @@ class MysApi(_MysApi):
         return await self.get_ck(uid, mode, "sr")
 
     async def add_sr_device_headers(self, header: Dict, uid: str) -> None:
-        device_id = await self.get_user_device_id(uid, "sr")
-        if device_id:
-            header["x-rpc-device_id"] = device_id
-        fp = await self.get_user_fp(uid, "sr")
-        if fp:
-            header["x-rpc-device_fp"] = fp
+        """为战绩API注入设备信息头，降低验证码触发概率。"""
+        try:
+            async with asyncio.timeout(5):
+                device_id = await self.get_user_device_id(uid, "sr")
+                if device_id is not None:
+                    header["x-rpc-device_id"] = device_id
+                fp = await self.get_user_fp(uid, "sr")
+                if fp is not None:
+                    header["x-rpc-device_fp"] = fp
+                # 从数据库读取设备信息
+                device_info = await GsUser.get_user_attr_by_uid(uid, "device_info", "sr")
+                if device_info and "/" in device_info:
+                    header["x-rpc-device_model"] = device_info.split("/")[1]
+                else:
+                    header["x-rpc-device_model"] = "Mi 10"
+                header["x-rpc-sys_version"] = "13"
+        except asyncio.TimeoutError:
+            logger.warning("[sr_api] 注入设备头超时，跳过")
+
+    async def _build_sr_header(self, uid: str, ck: Optional[str] = None) -> Dict:
+        """构建完整的SR请求头（含设备信息），用于直接调用_mys_request，避免框架覆盖UA。"""
+        header = copy.deepcopy(self._HEADER)
+        if ck:
+            header["Cookie"] = ck
+        await self.add_sr_device_headers(header, uid)
+        return header
 
     async def simple_sr_req(
         self,
@@ -115,6 +137,9 @@ class MysApi(_MysApi):
         header: Dict = {},  # noqa: B006
         cookie: Optional[str] = None,
     ) -> Union[Dict, int]:
+        if isinstance(uid, str):
+            header = copy.deepcopy(header)
+            await self.add_sr_device_headers(header, uid)
         return await self.simple_mys_req(
             URL,
             uid,
@@ -261,38 +286,32 @@ class MysApi(_MysApi):
     async def get_avatar_info(
         self, uid: str, avatar_id: int, need_wiki: bool = False
     ) -> Union[AvatarInfo, int]:
+        params = {
+            "need_wiki": "true" if need_wiki else "false",
+            "role_id": uid,
+            "server": RECOGNIZE_SERVER.get(str(uid)[0], "prod_gf_cn"),
+        }
         if self.check_os(uid, game_name="sr"):
-            HEADER = copy.deepcopy(self._HEADER_OS)
             ck = await self.get_sr_ck(uid, "OWNER")
             if ck is None:
                 return -51
-            HEADER["Cookie"] = ck
-            HEADER["DS"] = generate_os_ds()
-            header = HEADER
-            os_server = "prod_official_asia"
-            data = await self.simple_sr_req(
-                "STAR_RAIL_AVATAR_INFO_URL",
-                uid,
-                params={
-                    "need_wiki": "true" if need_wiki else "false",
-                    "role_id": uid,
-                    "server": RECOGNIZE_SERVER.get(str(uid)[0], os_server),
-                },
-                header=header,
-            )
+            header = copy.deepcopy(self._HEADER_OS)
+            header["Cookie"] = ck
+            header["DS"] = generate_os_ds()
+            header["x-rpc-language"] = "zh-cn"
+            url = _API["STAR_RAIL_AVATAR_INFO_URL_OS"]
+            params["server"] = RECOGNIZE_SERVER.get(str(uid)[0], "prod_official_asia")
+            data = await self._mys_request(url, "GET", header, params=params, use_proxy=True)
         else:
-            params = {
-                "need_wiki": "true" if need_wiki else "false",
-                "role_id": uid,
-                "server": RECOGNIZE_SERVER.get(str(uid)[0], "prod_gf_cn"),
-            }
-            # if avatar_id:  # Only include id param if specific avatar requested
-                # params["id"] = avatar_id
-            data = await self.simple_sr_req(
-                "STAR_RAIL_AVATAR_INFO_URL",
-                uid,
-                params=params,
-                header=self._HEADER,
+            ck = await self.get_sr_ck(uid, "OWNER")
+            if ck is None:
+                return -51
+            header = await self._build_sr_header(uid, ck)
+            header["DS"] = get_ds_token(
+                "&".join(f"{k}={v}" for k, v in sorted(params.items()))
+            )
+            data = await self._mys_request(
+                _API["STAR_RAIL_AVATAR_INFO_URL"], "GET", header, params=params
             )
         if isinstance(data, Dict):
             normalized_data = _normalize_mys_avatar_payload(data["data"])
@@ -716,7 +735,20 @@ class MysApi(_MysApi):
         self,
         sr_uid: str,
     ) -> Union[RoleBasicInfo, int]:
-        data = await self.simple_sr_req("STAR_RAIL_ROLE_BASIC_INFO_URL", sr_uid, header=self._HEADER)
+        params = {
+            "role_id": sr_uid,
+            "server": RECOGNIZE_SERVER.get(str(sr_uid)[0], "prod_gf_cn"),
+        }
+        ck = await self.get_sr_ck(sr_uid, "OWNER")
+        if ck is None:
+            return -51
+        header = await self._build_sr_header(sr_uid, ck)
+        header["DS"] = get_ds_token(
+            "&".join(f"{k}={v}" for k, v in sorted(params.items()))
+        )
+        data = await self._mys_request(
+            _API["STAR_RAIL_ROLE_BASIC_INFO_URL"], "GET", header, params=params
+        )
         if isinstance(data, Dict):
             data = msgspec.convert(data["data"], type=RoleBasicInfo)
         return data

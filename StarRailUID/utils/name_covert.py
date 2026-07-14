@@ -3,6 +3,9 @@ from typing import Optional
 from starrail_damage_cal.excel import model
 from starrail_damage_cal.map import SR_MAP_PATH
 
+from ..starrailuid_alias.alias_manager import get_canonical_name as _get_canonical
+from ..starrailuid_alias.alias_manager import resolve_char_id as _resolve_alias
+
 
 async def name_to_relic_set_id(name: str):
     for set_name in SR_MAP_PATH.SetId2Name:
@@ -25,17 +28,20 @@ async def avatar_id_to_char_star(char_id: str) -> str:
 
 
 async def alias_to_char_id(char_name: str) -> Optional[str]:
-    for i in model.CharAlias["characters"]:
-        for j in model.CharAlias["characters"][i]:
-            if char_name in j:
-                return i
-    return None
+    """通过别名查找 char_id，优先查用户自定义别名，再查内置别名，最后兜底标准名。"""
+    return _resolve_alias(char_name)
 
 
 async def alias_to_char_name(char_name: str) -> str:
-    for i in model.CharAlias["characters"]:
-        if char_name in model.CharAlias["characters"][i]:
-            return model.CharAlias["characters"][i][0]
+    """通过别名获取标准角色名（别名列表第一个）。"""
+    char_id = _resolve_alias(char_name)
+    if char_id:
+        canonical = _get_canonical(char_id)
+        if canonical:
+            return canonical
+        # 兜底
+        aliases = model.CharAlias["characters"].get(char_id, [])
+        return aliases[0] if aliases else char_name
     return char_name
 
 

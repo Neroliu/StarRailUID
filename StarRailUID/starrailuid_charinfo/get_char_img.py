@@ -240,6 +240,18 @@ async def get_char_data_with_source(
     char_data = _load_cached_char_data(uid, str(char_name), enable_self)
     if char_data is not None:
         return char_data, "mihomo"
+
+    # 缓存未命中，尝试从API实时拉取展柜数据后再查
+    logger.info(f"[sr查询] {char_name} 缓存未命中，尝试从API获取数据...")
+    try:
+        from .panel_data import fetch_panel_data
+        await fetch_panel_data(uid)
+    except Exception as exc:
+        logger.warning(f"[sr查询] API获取数据失败: {exc}")
+
+    char_data = _load_cached_char_data(uid, str(char_name), enable_self)
+    if char_data is not None:
+        return char_data, "mihomo"
     return CHAR_HINT.format(char_name, char_name)
 
 
