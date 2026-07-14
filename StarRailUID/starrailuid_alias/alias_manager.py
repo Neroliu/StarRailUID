@@ -55,17 +55,35 @@ def reload_aliases() -> None:
 
 
 def get_char_id_by_alias(name: str) -> Optional[str]:
-    """通过角色名/别名查找 char_id，找不到返回 None。"""
+    """通过别名查找 char_id，仅查别名表。"""
     for char_id, aliases in _merged_aliases.items():
         if name in aliases:
             return char_id
     return None
 
 
+def resolve_char_id(name: str) -> Optional[str]:
+    """解析角色名/别名为 char_id。
+    优先查别名表，找不到则通过 avatarId2Name 标准名匹配。
+    这样即使角色没有别名条目，用标准名也能找到。
+    """
+    # 1. 查别名表（内置 + 用户）
+    result = get_char_id_by_alias(name)
+    if result is not None:
+        return result
+    # 2. 查标准名 avatarId2Name
+    for cid, std_name in SR_MAP_PATH.avatarId2Name.items():
+        if std_name == name:
+            return cid
+    return None
+
+
 def get_canonical_name(char_id: str) -> Optional[str]:
-    """获取角色的标准名称（别名列表第一个）。"""
+    """获取角色的标准名称：优先别名表第一个，兜底 avatarId2Name。"""
     aliases = _merged_aliases.get(char_id)
-    return aliases[0] if aliases else None
+    if aliases:
+        return aliases[0]
+    return SR_MAP_PATH.avatarId2Name.get(char_id)
 
 
 def get_alias_list(char_id: str) -> List[str]:
@@ -75,8 +93,8 @@ def get_alias_list(char_id: str) -> List[str]:
 
 def add_user_alias(char_id: str, alias: str) -> bool:
     """为角色添加用户别名，返回 True 表示成功。"""
-    # 检查别名是否已被占用
-    existing = get_char_id_by_alias(alias)
+    # 检查别名是否已被占用（别名表 + 标准名）
+    existing = resolve_char_id(alias)
     if existing is not None:
         return False
     user_aliases = _load_user_aliases()

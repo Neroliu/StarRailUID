@@ -11,6 +11,7 @@ from .alias_manager import (
     get_char_id_by_alias,
     is_builtin_alias,
     remove_user_alias,
+    resolve_char_id,
 )
 
 sv_sr_alias = SV("sr角色别名", priority=5)
@@ -25,13 +26,16 @@ _NAME_PATTERN = r"[一-龥a-zA-Z0-9\-—·.()（）]{1,20}"
 async def sr_alias_list(bot: Bot, ev: Event):
     """查看角色别名：sr呆毛王别名"""
     char_name = ev.regex_dict["char_name"]
-    char_id = get_char_id_by_alias(char_name)
+    char_id = resolve_char_id(char_name)
     if char_id is None:
         return await bot.send(f"[星铁] 未找到角色: {char_name}")
 
     canonical = get_canonical_name(char_id) or char_name
     aliases = get_alias_list(char_id)
-    alias_str = "、".join(aliases) if aliases else "无"
+    if not aliases:
+        # 没有别名条目，但通过标准名找到了角色
+        return await bot.send(f"[星铁] 角色【{canonical}】暂无自定义别名，可使用 sr添加{canonical}别名XXX 来添加")
+    alias_str = "、".join(aliases)
     await bot.send(f"[星铁] 角色【{canonical}】别名列表：\n{alias_str}")
 
 
@@ -44,7 +48,7 @@ async def sr_alias_add(bot: Bot, ev: Event):
     char_name = ev.regex_dict["char_name"]
     new_alias = ev.regex_dict["new_alias"]
 
-    char_id = get_char_id_by_alias(char_name)
+    char_id = resolve_char_id(char_name)
     if char_id is None:
         return await bot.send(f"[星铁] 未找到角色: {char_name}")
 
@@ -52,7 +56,7 @@ async def sr_alias_add(bot: Bot, ev: Event):
     if add_user_alias(char_id, new_alias):
         await bot.send(f"[星铁] 已为角色【{canonical}】添加别名: {new_alias}")
     else:
-        occupied_by = get_char_id_by_alias(new_alias)
+        occupied_by = resolve_char_id(new_alias)
         occupied_name = get_canonical_name(occupied_by) if occupied_by else "未知"
         await bot.send(f"[星铁] 别名「{new_alias}」已被角色【{occupied_name}】占用")
 
@@ -66,7 +70,7 @@ async def sr_alias_del(bot: Bot, ev: Event):
     char_name = ev.regex_dict["char_name"]
     del_alias = ev.regex_dict["del_alias"]
 
-    char_id = get_char_id_by_alias(char_name)
+    char_id = resolve_char_id(char_name)
     if char_id is None:
         return await bot.send(f"[星铁] 未找到角色: {char_name}")
 
