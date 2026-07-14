@@ -16,7 +16,7 @@ from .alias_manager import (
 
 sv_sr_alias = SV("sr角色别名", priority=5)
 
-_NAME_PATTERN = r"[一-龥a-zA-Z0-9\-—·.()（）]{1,20}"
+_NAME_PATTERN = r"[一-龥a-zA-Z0-9\-—·•.()（）]{1,20}"
 
 
 @sv_sr_alias.on_regex(
