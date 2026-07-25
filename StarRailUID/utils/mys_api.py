@@ -5,6 +5,7 @@ from typing import Any, Dict, Literal, Optional, Tuple, Union
 from venv import logger
 
 import msgspec
+from gsuid_core.utils.api.mys.api import ApiEndpoint
 from gsuid_core.utils.api.mys.tools import (
     generate_os_ds,
     get_ds_token,
@@ -14,7 +15,31 @@ from gsuid_core.utils.api.mys.tools import (
 from gsuid_core.utils.api.mys_api import _MysApi
 from gsuid_core.utils.database.models import GsUser
 
-from ..sruid_utils.api.mys.api import _API
+from ..sruid_utils.api.mys.api import (
+    CHALLENGE_BOSS_INFO,
+    CHALLENGE_INFO,
+    CHALLENGE_PEAK_INFO,
+    CHALLENGE_STORY_INFO,
+    GRID_FIGHT_INFO,
+    ROGUE_INFO,
+    ROGUE_LOCUST_INFO,
+    ROGUE_TOURN_INFO,
+    STAR_RAIL_ACT_ID_LIST,
+    STAR_RAIL_AVATAR_DETAIL,
+    STAR_RAIL_AVATAR_INFO,
+    STAR_RAIL_EXCHANGE_CODE,
+    STAR_RAIL_GACHA_LOG,
+    STAR_RAIL_INDEX,
+    STAR_RAIL_LDGACHA_LOG,
+    STAR_RAIL_LIVE_INDEX,
+    STAR_RAIL_MONTH_INFO,
+    STAR_RAIL_NOTE,
+    STAR_RAIL_ROLE_BASIC_INFO,
+    STAR_RAIL_SIGN,
+    STAR_RAIL_SIGN_INFO,
+    STAR_RAIL_SIGN_LIST,
+    STAR_RAIL_WIDGET,
+)
 from ..sruid_utils.api.mys.models import (
     AbyssBossData,
     AbyssData,
@@ -131,7 +156,7 @@ class MysApi(_MysApi):
 
     async def simple_sr_req(
         self,
-        URL: str,
+        endpoint: ApiEndpoint,
         uid: Union[str, bool],
         params: Dict = {},  # noqa: B006
         header: Dict = {},  # noqa: B006
@@ -141,7 +166,7 @@ class MysApi(_MysApi):
             header = copy.deepcopy(header)
             await self.add_sr_device_headers(header, uid)
         return await self.simple_mys_req(
-            URL,
+            endpoint,
             uid,
             params,
             header,
@@ -159,7 +184,7 @@ class MysApi(_MysApi):
             HEADER["DS"] = generate_os_ds()
             header = HEADER
             data = await self.simple_sr_req(
-                "STAR_RAIL_NOTE_URL",
+                STAR_RAIL_NOTE,
                 uid,
                 params={
                     "role_id": uid,
@@ -168,7 +193,7 @@ class MysApi(_MysApi):
                 header=header,
             )
         else:
-            data = await self.simple_sr_req("STAR_RAIL_NOTE_URL", uid, header=self._HEADER)
+            data = await self.simple_sr_req(STAR_RAIL_NOTE, uid, header=self._HEADER)
         if isinstance(data, Dict):
             # workaround for mistake params in hoyolab
             if data["data"].get("accepted_epedition_num") is not None:
@@ -197,7 +222,7 @@ class MysApi(_MysApi):
         header["x-rpc-sys_version"] = "12"
         header["User-Agent"] = "okhttp/4.8.0"
         data = await self._mys_request(
-            _API["STAR_RAIL_WIDGRT_URL"],
+            STAR_RAIL_WIDGET.get(),
             "GET",
             header,
         )
@@ -215,7 +240,7 @@ class MysApi(_MysApi):
             HEADER["DS"] = generate_os_ds()
             header = HEADER
             data = await self.simple_sr_req(
-                "STAR_RAIL_INDEX_URL",
+                STAR_RAIL_INDEX,
                 uid,
                 params={
                     "role_id": uid,
@@ -224,7 +249,7 @@ class MysApi(_MysApi):
                 header=header,
             )
         else:
-            data = await self.simple_sr_req("STAR_RAIL_INDEX_URL", uid, header=self._HEADER)
+            data = await self.simple_sr_req(STAR_RAIL_INDEX, uid, header=self._HEADER)
         if isinstance(data, Dict):
             data = msgspec.convert(data["data"], type=RoleIndex)
         return data
@@ -249,14 +274,14 @@ class MysApi(_MysApi):
             HEADER["Cookie"] = ck
             HEADER["DS"] = generate_os_ds()
             header = HEADER
-            url = self.MAPI["STAR_RAIL_GACHA_LOG_URL_OS"]
+            url = STAR_RAIL_GACHA_LOG.get(True)
             game_biz = "hkrpg_global"
         else:
             header = self._HEADER
             if gacha_type in ["21", "22"]:
-                url = self.MAPI["STAR_RAIL_LDGACHA_LOG_URL"]
+                url = STAR_RAIL_LDGACHA_LOG.get()
             else:
-                url = self.MAPI["STAR_RAIL_GACHA_LOG_URL"]
+                url = STAR_RAIL_GACHA_LOG.get()
             game_biz = "hkrpg_cn"
         data = await self._mys_request(
             url=url + f"?authkey={authkey}",
@@ -299,7 +324,7 @@ class MysApi(_MysApi):
             header["Cookie"] = ck
             header["DS"] = generate_os_ds()
             header["x-rpc-language"] = "zh-cn"
-            url = _API["STAR_RAIL_AVATAR_INFO_URL_OS"]
+            url = STAR_RAIL_AVATAR_INFO.get(True)
             params["server"] = RECOGNIZE_SERVER.get(str(uid)[0], "prod_official_asia")
             data = await self._mys_request(url, "GET", header, params=params, use_proxy=True)
         else:
@@ -311,7 +336,7 @@ class MysApi(_MysApi):
                 "&".join(f"{k}={v}" for k, v in sorted(params.items()))
             )
             data = await self._mys_request(
-                _API["STAR_RAIL_AVATAR_INFO_URL"], "GET", header, params=params
+                STAR_RAIL_AVATAR_INFO.get(), "GET", header, params=params
             )
         if isinstance(data, Dict):
             normalized_data = _normalize_mys_avatar_payload(data["data"])
@@ -336,7 +361,7 @@ class MysApi(_MysApi):
 
     async def get_avatar_detail(self, uid: str, avatarid: str):
         data = await self.simple_sr_req(
-            "STAR_RAIL_AVATAR_DETAIL_URL",
+            STAR_RAIL_AVATAR_DETAIL,
             uid,
             params={
                 "game": "hkrpg",
@@ -368,7 +393,7 @@ class MysApi(_MysApi):
             }
 
         data = await self._mys_req_get(
-            "STAR_RAIL_SIGN_LIST_URL",
+            STAR_RAIL_SIGN_LIST,
             is_os,
             params,
         )
@@ -400,7 +425,7 @@ class MysApi(_MysApi):
             }
             header = self._HEADER
         data = await self._mys_req_get(
-            "STAR_RAIL_SIGN_INFO_URL",
+            STAR_RAIL_SIGN_INFO,
             is_os,
             params,
             header,
@@ -425,7 +450,7 @@ class MysApi(_MysApi):
             HEADER["DS"] = generate_os_ds()
             header = HEADER
             data = await self.simple_sr_req(
-                "CHALLENGE_INFO_URL",
+                CHALLENGE_INFO,
                 uid,
                 params={
                     "need_all": "true",
@@ -437,7 +462,7 @@ class MysApi(_MysApi):
             )
         else:
             data = await self.simple_sr_req(
-                "CHALLENGE_INFO_URL",
+                CHALLENGE_INFO,
                 uid,
                 params={
                     "isPrev": "true",
@@ -469,7 +494,7 @@ class MysApi(_MysApi):
             HEADER["DS"] = generate_os_ds()
             header = HEADER
             data = await self.simple_sr_req(
-                "CHALLENGE_STORY_INFO_URL",
+                CHALLENGE_STORY_INFO,
                 uid,
                 params={
                     "need_all": "true",
@@ -481,7 +506,7 @@ class MysApi(_MysApi):
             )
         else:
             data = await self.simple_sr_req(
-                "CHALLENGE_STORY_INFO_URL",
+                CHALLENGE_STORY_INFO,
                 uid,
                 params={
                     "isPrev": "true",
@@ -514,7 +539,7 @@ class MysApi(_MysApi):
             HEADER["DS"] = generate_os_ds()
             header = HEADER
             data = await self.simple_sr_req(
-                "CHALLENGE_BOSS_INFO_URL",
+                CHALLENGE_BOSS_INFO,
                 uid,
                 params={
                     "need_all": "true",
@@ -526,7 +551,7 @@ class MysApi(_MysApi):
             )
         else:
             data = await self.simple_sr_req(
-                "CHALLENGE_BOSS_INFO_URL",
+                CHALLENGE_BOSS_INFO,
                 uid,
                 params={
                     "isPrev": "true",
@@ -558,7 +583,7 @@ class MysApi(_MysApi):
             HEADER["DS"] = generate_os_ds()
             header = HEADER
             data = await self.simple_sr_req(
-                "CHALLENGE_PEAK_INFO_URL",
+                CHALLENGE_PEAK_INFO,
                 uid,
                 params={
                     "need_all": "true",
@@ -570,7 +595,7 @@ class MysApi(_MysApi):
             )
         else:
             data = await self.simple_sr_req(
-                "CHALLENGE_PEAK_INFO_URL",
+                CHALLENGE_PEAK_INFO,
                 uid,
                 params={
                     "isPrev": "true",
@@ -594,7 +619,7 @@ class MysApi(_MysApi):
     ) -> Union[RogueData, int]:
         server_id = self.RECOGNIZE_SERVER.get(uid[0])
         data = await self.simple_sr_req(
-            "ROGUE_INFO_URL",
+            ROGUE_INFO,
             uid,
             params={
                 "need_detail": "true",
@@ -617,7 +642,7 @@ class MysApi(_MysApi):
         server_id = self.RECOGNIZE_SERVER.get(uid[0])
         ck = await self.get_sr_ck(uid, "OWNER")
         data = await self.simple_sr_req(
-            "ROGUE_LOCUST_INFO_URL",
+            ROGUE_LOCUST_INFO,
             uid,
             params={
                 "need_detail": "true",
@@ -645,7 +670,7 @@ class MysApi(_MysApi):
             header["Cookie"] = ck
         await self.add_sr_device_headers(header, uid)
         data = await self.simple_sr_req(
-            "ROGUE_TOURN_INFO_URL",
+            ROGUE_TOURN_INFO,
             uid,
             params={"role_id": uid, "server": server_id},
             header=header,
@@ -671,7 +696,7 @@ class MysApi(_MysApi):
             HEADER["Referer"] = "https://webstatic.mihoyo.com"
             HEADER.update(header)
             data = await self._mys_request(
-                url=_API["STAR_RAIL_SIGN_URL"],
+                url=STAR_RAIL_SIGN.get(),
                 method="POST",
                 header=HEADER,
                 data={
@@ -687,7 +712,7 @@ class MysApi(_MysApi):
             HEADER["DS"] = generate_os_ds()
             HEADER.update(header)
             data = await self._mys_request(
-                url=_API["STAR_RAIL_SIGN_URL_OS"],
+                url=STAR_RAIL_SIGN.get(True),
                 method="POST",
                 header=HEADER,
                 data={
@@ -710,7 +735,7 @@ class MysApi(_MysApi):
             HEADER["DS"] = get_web_ds_token(True)
             await self.add_sr_device_headers(HEADER, str(sr_uid))
             data = await self._mys_request(
-                url=_API["STAR_RAIL_MONTH_INFO_URL"],
+                url=STAR_RAIL_MONTH_INFO.get(),
                 method="GET",
                 header=HEADER,
                 params={"uid": sr_uid, "region": server_id, "month": month},
@@ -721,7 +746,7 @@ class MysApi(_MysApi):
             HEADER["DS"] = generate_os_ds()
             await self.add_sr_device_headers(HEADER, str(sr_uid))
             data = await self._mys_request(
-                url=_API["STAR_RAIL_MONTH_INFO_URL"],
+                url=STAR_RAIL_MONTH_INFO.get(),
                 method="GET",
                 header=HEADER,
                 params={"uid": sr_uid, "region": server_id, "month": month},
@@ -747,7 +772,7 @@ class MysApi(_MysApi):
             "&".join(f"{k}={v}" for k, v in sorted(params.items()))
         )
         data = await self._mys_request(
-            _API["STAR_RAIL_ROLE_BASIC_INFO_URL"], "GET", header, params=params
+            STAR_RAIL_ROLE_BASIC_INFO.get(), "GET", header, params=params
         )
         if isinstance(data, Dict):
             data = msgspec.convert(data["data"], type=RoleBasicInfo)
@@ -755,7 +780,7 @@ class MysApi(_MysApi):
 
     async def get_sr_act_id(self) -> str | int:
         data = await self._mys_request(
-            url=_API["STAR_RAIL_ACT_ID_LIST_URL"],
+            url=STAR_RAIL_ACT_ID_LIST.get(),
             method="GET",
             params={"offset": 0, "size": 20, "uid": 80823548},
         )
@@ -779,7 +804,7 @@ class MysApi(_MysApi):
 
     async def get_sr_code_ver(self, act_id: str) -> str | int:
         data = await self._mys_request(
-            url=_API["STAR_RAIL_LIVE_INDEX_URL"],
+            url=STAR_RAIL_LIVE_INDEX.get(),
             method="GET",
             header={"x-rpc-act_id": act_id},
         )
@@ -793,7 +818,7 @@ class MysApi(_MysApi):
     async def get_sr_exchange_code(self, code_ver: str, act_id: str) -> list | int:
         now = int(time.time())
         data = await self._mys_request(
-            url=_API["STAR_RAIL_EXCHANGE_CODE_URL"],
+            url=STAR_RAIL_EXCHANGE_CODE.get(),
             method="GET",
             params={"version": code_ver, "time": now},
             header={"x-rpc-act_id": act_id},
@@ -808,7 +833,7 @@ class MysApi(_MysApi):
         server_id = self.RECOGNIZE_SERVER.get(uid[0])
         ck = await self.get_sr_ck(uid, "OWNER")
         data = await self.simple_sr_req(
-            "GRID_FIGHT_INFO_URL",
+            GRID_FIGHT_INFO,
             uid,
             params={
                 "role_id": uid,
@@ -823,6 +848,5 @@ class MysApi(_MysApi):
 
 
 mys_api = MysApi()
-mys_api.MAPI.update(_API)
 mys_api.is_sr = True
 mys_api.RECOGNIZE_SERVER = RECOGNIZE_SERVER

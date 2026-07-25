@@ -1,87 +1,147 @@
 # flake8: noqa
+from __future__ import annotations
+
+from gsuid_core.utils.api.mys.api import ApiEndpoint
+
 OLD_URL = "https://api-takumi.mihoyo.com"
 OS_OLD_URL = "https://api-os-takumi.mihoyo.com"
 NEW_URL = "https://api-takumi-record.mihoyo.com"
 OS_URL = "https://sg-public-api.hoyolab.com"
 OS_INFO_URL = "https://bbs-api-os.hoyolab.com"
-GACHA_LOG_URL = "https://public-operation-hkrpg.mihoyo.com"
+GACHA_LOG_HOST = "https://public-operation-hkrpg.mihoyo.com"
 MYS_BBS_URL = "https://bbs-api.mihoyo.com"
 STATIC_URL = "https://api-takumi-static.mihoyo.com"
 
-STAR_RAIL_SIGN_INFO_URL = f"{OLD_URL}/event/luna/info"
-STAR_RAIL_SIGN_INFO_URL_OS = f"{OS_URL}/event/luna/os/info"
-STAR_RAIL_SIGN_LIST_URL = f"{OLD_URL}/event/luna/home"
-STAR_RAIL_SIGN_LIST_URL_OS = f"{OS_URL}/event/luna/os/home"
-STAR_RAIL_SIGN_EXTRA_INFO_URL = f"{OLD_URL}/event/luna/extra_info"
-STAR_RAIL_SIGN_EXTRA_REWARD_URL = f"{OLD_URL}/event/luna/extra_reward"
-STAR_RAIL_SIGN_URL = f"{OLD_URL}/event/luna/sign"
-STAR_RAIL_SIGN_URL_OS = f"{OS_URL}/event/luna/os/sign"
-STAR_RAIL_MONTH_INFO_URL = f"{OLD_URL}/event/srledger/month_info"  # 开拓阅历接口
-STAR_RAIL_MONTH_DETAIL_URL = (
-    f"{OLD_URL}/event/srledger/month_detail"  # 开拓阅历详情接口
+STAR_RAIL_SIGN_INFO = ApiEndpoint(
+    cn=f"{OLD_URL}/event/luna/info",
+    os=f"{OS_URL}/event/luna/os/info",
+    name="STAR_RAIL_SIGN_INFO",
+)
+STAR_RAIL_SIGN_LIST = ApiEndpoint(
+    cn=f"{OLD_URL}/event/luna/home",
+    os=f"{OS_URL}/event/luna/os/home",
+    name="STAR_RAIL_SIGN_LIST",
+)
+STAR_RAIL_SIGN_EXTRA_INFO = ApiEndpoint(
+    cn=f"{OLD_URL}/event/luna/extra_info",
+    name="STAR_RAIL_SIGN_EXTRA_INFO",
+)
+STAR_RAIL_SIGN_EXTRA_REWARD = ApiEndpoint(
+    cn=f"{OLD_URL}/event/luna/extra_reward",
+    name="STAR_RAIL_SIGN_EXTRA_REWARD",
+)
+STAR_RAIL_SIGN = ApiEndpoint(
+    cn=f"{OLD_URL}/event/luna/sign",
+    os=f"{OS_URL}/event/luna/os/sign",
+    name="STAR_RAIL_SIGN",
+)
+STAR_RAIL_MONTH_INFO = ApiEndpoint(
+    cn=f"{OLD_URL}/event/srledger/month_info",
+    name="STAR_RAIL_MONTH_INFO",
+)
+STAR_RAIL_MONTH_DETAIL = ApiEndpoint(
+    cn=f"{OLD_URL}/event/srledger/month_detail",
+    name="STAR_RAIL_MONTH_DETAIL",
 )
 
-STAR_RAIL_NOTE_URL = f"{NEW_URL}/game_record/app/hkrpg/api/note"  # 实时便签接口
-STAR_RAIL_NOTE_URL_OS = f"{OS_INFO_URL}/game_record/hkrpg/api/note"  # OS实时便签接口
-STAR_RAIL_INDEX_URL = f"{NEW_URL}/game_record/app/hkrpg/api/index"  # 角色橱窗接口
-STAR_RAIL_INDEX_URL_OS = f"{OS_INFO_URL}/game_record/hkrpg/api/index"  # OS角色橱窗接口
-STAR_RAIL_AVATAR_BASIC_URL = (
-    f"{NEW_URL}/game_record/app/hkrpg/api/avatar/basic"  # 全部角色接口
+STAR_RAIL_NOTE = ApiEndpoint(
+    cn=f"{NEW_URL}/game_record/app/hkrpg/api/note",
+    os=f"{OS_INFO_URL}/game_record/hkrpg/api/note",
+    name="STAR_RAIL_NOTE",
 )
-STAR_RAIL_ROLE_BASIC_INFO_URL = (
-    f"{NEW_URL}/game_record/app/hkrpg/api/role/basicInfo"  # 角色基础信息接口
+STAR_RAIL_INDEX = ApiEndpoint(
+    cn=f"{NEW_URL}/game_record/app/hkrpg/api/index",
+    os=f"{OS_INFO_URL}/game_record/hkrpg/api/index",
+    name="STAR_RAIL_INDEX",
 )
-STAR_RAIL_ROLE_BASIC_INFO_URL_OS = f"{OS_INFO_URL}/game_record/hkrpg/api/index"
-STAR_RAIL_AVATAR_INFO_URL = (
-    f"{NEW_URL}/game_record/app/hkrpg/api/avatar/info"  # 角色详细信息接口
+STAR_RAIL_AVATAR_BASIC = ApiEndpoint(
+    cn=f"{NEW_URL}/game_record/app/hkrpg/api/avatar/basic",
+    name="STAR_RAIL_AVATAR_BASIC",
 )
-STAR_RAIL_AVATAR_INFO_URL_OS = (
-    f"{OS_INFO_URL}/game_record/hkrpg/api/avatar/info"  # OS角色详细信息接口
+STAR_RAIL_ROLE_BASIC_INFO = ApiEndpoint(
+    cn=f"{NEW_URL}/game_record/app/hkrpg/api/role/basicInfo",
+    os=f"{OS_INFO_URL}/game_record/hkrpg/api/index",
+    name="STAR_RAIL_ROLE_BASIC_INFO",
 )
-
-STAR_RAIL_AVATAR_LIST_URL = f"{OLD_URL}/event/rpgcalc/avatar/list"
-STAR_RAIL_AVATAR_DETAIL_URL = f"{OLD_URL}/event/rpgcalc/avatar/detail"
-
-CHALLENGE_INFO_URL = f"{NEW_URL}/game_record/app/hkrpg/api/challenge"  # 忘却之庭
-CHALLENGE_INFO_URL_OS = f"{OS_INFO_URL}/game_record/hkrpg/api/challenge"  # OS忘却之庭
-CHALLENGE_STORY_INFO_URL = (
-    f"{NEW_URL}/game_record/app/hkrpg/api/challenge_story"  # 虚构叙事
+STAR_RAIL_AVATAR_INFO = ApiEndpoint(
+    cn=f"{NEW_URL}/game_record/app/hkrpg/api/avatar/info",
+    os=f"{OS_INFO_URL}/game_record/hkrpg/api/avatar/info",
+    name="STAR_RAIL_AVATAR_INFO",
 )
-CHALLENGE_BOSS_INFO_URL = (
-    f"{NEW_URL}/game_record/app/hkrpg/api/challenge_boss"  # 末日幻影
+STAR_RAIL_AVATAR_LIST = ApiEndpoint(
+    cn=f"{OLD_URL}/event/rpgcalc/avatar/list",
+    name="STAR_RAIL_AVATAR_LIST",
 )
-CHALLENGE_PEAK_INFO_URL = (
-    f"{NEW_URL}/game_record/app/hkrpg/api/challenge_peak"  # 异相仲裁
-)
-
-ROGUE_INFO_URL = f"{NEW_URL}/game_record/app/hkrpg/api/rogue"  # 角色模拟宇宙信息接口
-ROGUE_LOCUST_INFO_URL = (
-    f"{NEW_URL}/game_record/app/hkrpg/api/rogue_locust"  # 角色寰宇蝗灾信息接口
-)
-ROGUE_TOURN_INFO_URL = (
-    f"{NEW_URL}/game_record/app/hkrpg/api/rogue_tourn"  # 差分宇宙信息接口
-)
-ROGUE_TOURN_INFO_URL_OS = f"{OS_INFO_URL}/game_record/hkrpg/api/rogue_tourn"
-GRID_FIGHT_INFO_URL = (
-    f"{NEW_URL}/game_record/app/hkrpg/api/grid_fight"  # 货币战争信息接口
+STAR_RAIL_AVATAR_DETAIL = ApiEndpoint(
+    cn=f"{OLD_URL}/event/rpgcalc/avatar/detail",
+    name="STAR_RAIL_AVATAR_DETAIL",
 )
 
-STAR_RAIL_GACHA_LOG_URL = (
-    "https://public-operation-hkrpg.mihoyo.com/common/gacha_record/api/getGachaLog"
+CHALLENGE_INFO = ApiEndpoint(
+    cn=f"{NEW_URL}/game_record/app/hkrpg/api/challenge",
+    os=f"{OS_INFO_URL}/game_record/hkrpg/api/challenge",
+    name="CHALLENGE_INFO",
 )
-STAR_RAIL_LDGACHA_LOG_URL = (
-    "https://public-operation-hkrpg.mihoyo.com/common/gacha_record/api/getLdGachaLog"
+CHALLENGE_STORY_INFO = ApiEndpoint(
+    cn=f"{NEW_URL}/game_record/app/hkrpg/api/challenge_story",
+    name="CHALLENGE_STORY_INFO",
 )
-STAR_RAIL_GACHA_LOG_URL_OS = f"{OS_OLD_URL}/common/gacha_record/api/getGachaLog"
+CHALLENGE_BOSS_INFO = ApiEndpoint(
+    cn=f"{NEW_URL}/game_record/app/hkrpg/api/challenge_boss",
+    name="CHALLENGE_BOSS_INFO",
+)
+CHALLENGE_PEAK_INFO = ApiEndpoint(
+    cn=f"{NEW_URL}/game_record/app/hkrpg/api/challenge_peak",
+    name="CHALLENGE_PEAK_INFO",
+)
 
-GET_FP_URL = "https://public-data-api.mihoyo.com/device-fp/api/getFp"
-GET_FP_URL_OS = "https://sg-public-data-api.hoyoverse.com/device-fp/api/getFp"
-# CREATE_QRCODE = f'{OLD_URL}/event/bbs_sign_reward/gen_auth_code'
+ROGUE_INFO = ApiEndpoint(
+    cn=f"{NEW_URL}/game_record/app/hkrpg/api/rogue",
+    name="ROGUE_INFO",
+)
+ROGUE_LOCUST_INFO = ApiEndpoint(
+    cn=f"{NEW_URL}/game_record/app/hkrpg/api/rogue_locust",
+    name="ROGUE_LOCUST_INFO",
+)
+ROGUE_TOURN_INFO = ApiEndpoint(
+    cn=f"{NEW_URL}/game_record/app/hkrpg/api/rogue_tourn",
+    os=f"{OS_INFO_URL}/game_record/hkrpg/api/rogue_tourn",
+    name="ROGUE_TOURN_INFO",
+)
+GRID_FIGHT_INFO = ApiEndpoint(
+    cn=f"{NEW_URL}/game_record/app/hkrpg/api/grid_fight",
+    name="GRID_FIGHT_INFO",
+)
 
-STAR_RAIL_WIDGRT_URL = f"{NEW_URL}/game_record/app/hkrpg/aapi/widget"
+STAR_RAIL_GACHA_LOG = ApiEndpoint(
+    cn=f"{GACHA_LOG_HOST}/common/gacha_record/api/getGachaLog",
+    os=f"{OS_OLD_URL}/common/gacha_record/api/getGachaLog",
+    name="STAR_RAIL_GACHA_LOG",
+)
+STAR_RAIL_LDGACHA_LOG = ApiEndpoint(
+    cn=f"{GACHA_LOG_HOST}/common/gacha_record/api/getLdGachaLog",
+    name="STAR_RAIL_LDGACHA_LOG",
+)
 
-STAR_RAIL_LIVE_INDEX_URL = f"{OLD_URL}/event/miyolive/index"
-STAR_RAIL_EXCHANGE_CODE_URL = f"{STATIC_URL}/event/miyolive/refreshCode"
-STAR_RAIL_ACT_ID_LIST_URL = f"{MYS_BBS_URL}/painter/api/user_instant/list"
+GET_FP = ApiEndpoint(
+    cn="https://public-data-api.mihoyo.com/device-fp/api/getFp",
+    os="https://sg-public-data-api.hoyoverse.com/device-fp/api/getFp",
+    name="GET_FP",
+)
 
-_API = locals()
+STAR_RAIL_WIDGET = ApiEndpoint(
+    cn=f"{NEW_URL}/game_record/app/hkrpg/aapi/widget",
+    name="STAR_RAIL_WIDGET",
+)
+STAR_RAIL_LIVE_INDEX = ApiEndpoint(
+    cn=f"{OLD_URL}/event/miyolive/index",
+    name="STAR_RAIL_LIVE_INDEX",
+)
+STAR_RAIL_EXCHANGE_CODE = ApiEndpoint(
+    cn=f"{STATIC_URL}/event/miyolive/refreshCode",
+    name="STAR_RAIL_EXCHANGE_CODE",
+)
+STAR_RAIL_ACT_ID_LIST = ApiEndpoint(
+    cn=f"{MYS_BBS_URL}/painter/api/user_instant/list",
+    name="STAR_RAIL_ACT_ID_LIST",
+)
