@@ -4,7 +4,6 @@ import time
 from typing import Any, Dict, Literal, Optional, Tuple, Union
 from venv import logger
 
-import msgspec
 from gsuid_core.utils.api.mys.api import ApiEndpoint
 from gsuid_core.utils.api.mys.tools import (
     generate_os_ds,
@@ -14,6 +13,7 @@ from gsuid_core.utils.api.mys.tools import (
 )
 from gsuid_core.utils.api.mys_api import _MysApi
 from gsuid_core.utils.database.models import GsUser
+import msgspec
 
 from ..sruid_utils.api.mys.api import (
     CHALLENGE_BOSS_INFO,
@@ -225,6 +225,7 @@ class MysApi(_MysApi):
             STAR_RAIL_WIDGET.get(),
             "GET",
             header,
+            game_name="sr",
         )
         if isinstance(data, Dict):
             data = msgspec.convert(data["data"], type=WidgetStamina)
@@ -266,7 +267,7 @@ class MysApi(_MysApi):
         server_id = RECOGNIZE_SERVER.get(str(uid)[0])
         if gacha_id is None:
             gacha_id = "b06a52bc37892e08837b112d28229cebca6b24a2"
-        if self.check_os(uid):
+        if self.check_os(uid, game_name="sr"):
             HEADER = copy.deepcopy(self._HEADER_OS)
             ck = await self.get_sr_ck(uid, "OWNER")
             if ck is None:
@@ -303,6 +304,7 @@ class MysApi(_MysApi):
                 "size": "20",
                 "end_id": end_id,
             },
+            game_name="sr",
         )
         if isinstance(data, Dict):
             data = msgspec.convert(data["data"], type=GachaLog)
@@ -326,17 +328,21 @@ class MysApi(_MysApi):
             header["x-rpc-language"] = "zh-cn"
             url = STAR_RAIL_AVATAR_INFO.get(True)
             params["server"] = RECOGNIZE_SERVER.get(str(uid)[0], "prod_official_asia")
-            data = await self._mys_request(url, "GET", header, params=params, use_proxy=True)
+            data = await self._mys_request(
+                url, "GET", header, params=params, use_proxy=True, game_name="sr"
+            )
         else:
             ck = await self.get_sr_ck(uid, "OWNER")
             if ck is None:
                 return -51
             header = await self._build_sr_header(uid, ck)
-            header["DS"] = get_ds_token(
-                "&".join(f"{k}={v}" for k, v in sorted(params.items()))
-            )
+            header["DS"] = get_ds_token("&".join(f"{k}={v}" for k, v in sorted(params.items())))
             data = await self._mys_request(
-                STAR_RAIL_AVATAR_INFO.get(), "GET", header, params=params
+                STAR_RAIL_AVATAR_INFO.get(),
+                "GET",
+                header,
+                params=params,
+                game_name="sr",
             )
         if isinstance(data, Dict):
             normalized_data = _normalize_mys_avatar_payload(data["data"])
@@ -379,7 +385,7 @@ class MysApi(_MysApi):
         return data
 
     async def get_sr_sign_list(self, uid) -> Union[SignList, int]:
-        is_os = self.check_os(uid)
+        is_os = self.check_os(uid, game_name="sr")
         if is_os:
             params = {
                 "act_id": "e202303301540311",
@@ -396,13 +402,14 @@ class MysApi(_MysApi):
             STAR_RAIL_SIGN_LIST,
             is_os,
             params,
+            game_name="sr",
         )
         if isinstance(data, Dict):
             data = msgspec.convert(data["data"], type=SignList)
         return data
 
     async def get_sr_sign_info(self, uid) -> Union[SignInfo, int]:
-        is_os = self.check_os(uid)
+        is_os = self.check_os(uid, game_name="sr")
         if is_os:
             # TODO
             params = {
@@ -429,6 +436,7 @@ class MysApi(_MysApi):
             is_os,
             params,
             header,
+            game_name="sr",
         )
         if isinstance(data, Dict):
             data = msgspec.convert(data["data"], type=SignInfo)
@@ -705,6 +713,7 @@ class MysApi(_MysApi):
                     "uid": uid,
                     "lang": "zh-cn",
                 },
+                game_name="sr",
             )
         else:
             HEADER = copy.deepcopy(self._HEADER_OS)
@@ -719,6 +728,7 @@ class MysApi(_MysApi):
                     "act_id": "e202303301540311",
                     "lang": "zh-cn",
                 },
+                game_name="sr",
             )
         if isinstance(data, Dict):
             data = msgspec.convert(data["data"], type=MysSign)
@@ -739,6 +749,7 @@ class MysApi(_MysApi):
                 method="GET",
                 header=HEADER,
                 params={"uid": sr_uid, "region": server_id, "month": month},
+                game_name="sr",
             )
         else:
             HEADER = copy.deepcopy(self._HEADER_OS)
@@ -751,6 +762,7 @@ class MysApi(_MysApi):
                 header=HEADER,
                 params={"uid": sr_uid, "region": server_id, "month": month},
                 use_proxy=True,
+                game_name="sr",
             )
         if isinstance(data, Dict):
             data = msgspec.convert(data["data"], type=MonthlyAward)
@@ -768,11 +780,13 @@ class MysApi(_MysApi):
         if ck is None:
             return -51
         header = await self._build_sr_header(sr_uid, ck)
-        header["DS"] = get_ds_token(
-            "&".join(f"{k}={v}" for k, v in sorted(params.items()))
-        )
+        header["DS"] = get_ds_token("&".join(f"{k}={v}" for k, v in sorted(params.items())))
         data = await self._mys_request(
-            STAR_RAIL_ROLE_BASIC_INFO.get(), "GET", header, params=params
+            STAR_RAIL_ROLE_BASIC_INFO.get(),
+            "GET",
+            header,
+            params=params,
+            game_name="sr",
         )
         if isinstance(data, Dict):
             data = msgspec.convert(data["data"], type=RoleBasicInfo)
@@ -783,6 +797,7 @@ class MysApi(_MysApi):
             url=STAR_RAIL_ACT_ID_LIST.get(),
             method="GET",
             params={"offset": 0, "size": 20, "uid": 80823548},
+            game_name="sr",
         )
         logger.debug(f"获取活动ID列表返回数据: {data}")
         if isinstance(data, dict):
@@ -807,6 +822,7 @@ class MysApi(_MysApi):
             url=STAR_RAIL_LIVE_INDEX.get(),
             method="GET",
             header={"x-rpc-act_id": act_id},
+            game_name="sr",
         )
         logger.debug(f"获取兑换码版本返回数据: {data}")
         if isinstance(data, dict):
@@ -822,6 +838,7 @@ class MysApi(_MysApi):
             method="GET",
             params={"version": code_ver, "time": now},
             header={"x-rpc-act_id": act_id},
+            game_name="sr",
         )
         logger.debug(f"获取兑换码返回数据: {data}")
         if isinstance(data, dict):
@@ -848,5 +865,4 @@ class MysApi(_MysApi):
 
 
 mys_api = MysApi()
-mys_api.is_sr = True
 mys_api.RECOGNIZE_SERVER = RECOGNIZE_SERVER
