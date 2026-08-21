@@ -24,7 +24,9 @@ SR_UID:{}
 
 async def award(uid) -> str:
     # 获取当前的月份
-    data = await mys_api.get_sr_award(uid, datetime.now().month)
+    now = datetime.now()
+    now_month = f"{now.year}{now.month:02d}"
+    data = await mys_api.get_sr_award(uid, now_month)
     if isinstance(data, int):
         return get_error(data)
     day_hcoin = data.day_data.current_hcoin
