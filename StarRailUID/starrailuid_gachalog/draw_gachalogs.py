@@ -159,7 +159,7 @@ async def draw_gachalogs_img(uid: str, ev: Event) -> bytes | str:
     path = PLAYER_PATH / str(uid) / "gacha_logs.json"
     wx_path = PLAYER_PATH / str(uid) / "gacha_logs_wx.json"
     if not path.exists() and not wx_path.exists():
-        return f"你还没有跃迁数据噢~\n请使用命令`{prefix}导入抽卡链接`更新跃迁数据~"
+        return f"你还没有跃迁数据噢~\n请使用命令`{prefix}刷新抽卡记录`更新跃迁数据~"
 
     gacha_data: dict[str, str | int | dict[str, list[dict[str, str | int | bool]]]] = {}
     if path.exists():
@@ -176,7 +176,7 @@ async def draw_gachalogs_img(uid: str, ev: Event) -> bytes | str:
                 wx_data = loaded_wx
 
     if not gacha_data and not wx_data:
-        return f"你还没有跃迁数据噢~\n请使用命令`{prefix}导入抽卡链接`更新跃迁数据~"
+        return f"你还没有跃迁数据噢~\n请使用命令`{prefix}刷新抽卡记录`更新跃迁数据~"
 
     if not gacha_data:
         data_time_val = str(wx_data["data_time"]) if "data_time" in wx_data else ""
