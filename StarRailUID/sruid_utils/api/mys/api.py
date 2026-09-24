@@ -114,7 +114,7 @@ GRID_FIGHT_INFO = ApiEndpoint(
 )
 
 STAR_RAIL_GACHA_LOGIN = ApiEndpoint(
-    cn=f"{OS_OLD_URL}/common/badge/v1/login/account",
+    cn=f"{OLD_URL}/common/badge/v1/login/account",
     name="STAR_RAIL_GACHA_LOGIN",
 )
 
