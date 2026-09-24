@@ -113,11 +113,21 @@ GRID_FIGHT_INFO = ApiEndpoint(
     name="GRID_FIGHT_INFO",
 )
 
+STAR_RAIL_GACHA_LOGIN = ApiEndpoint(
+    cn=f"{OS_OLD_URL}/common/badge/v1/login/account",
+    name="STAR_RAIL_GACHA_LOGIN",
+)
+
+STAR_RAIL_FIVE_STAR_LIST = ApiEndpoint(
+    cn="https://act-api-takumi.mihoyo.com/event/rpg_gacha_record/five_star_list",
+    name="STAR_RAIL_FIVE_STAR_LIST",
+)
 STAR_RAIL_GACHA_LOG = ApiEndpoint(
     cn=f"{GACHA_LOG_HOST}/common/gacha_record/api/getGachaLog",
     os=f"{OS_OLD_URL}/common/gacha_record/api/getGachaLog",
     name="STAR_RAIL_GACHA_LOG",
 )
+
 STAR_RAIL_LDGACHA_LOG = ApiEndpoint(
     cn=f"{GACHA_LOG_HOST}/common/gacha_record/api/getLdGachaLog",
     name="STAR_RAIL_LDGACHA_LOG",

@@ -1,14 +1,13 @@
 import asyncio
-import json
 from datetime import datetime
+import json
 from pathlib import Path
-from typing import List, Tuple, Union
 
+from PIL import Image, ImageDraw
 from gsuid_core.logger import logger
 from gsuid_core.models import Event
 from gsuid_core.utils.image.convert import convert_img
 from gsuid_core.utils.image.image_tools import draw_pic_with_ring, get_color_bg
-from PIL import Image, ImageDraw
 
 from ..utils.error_reply import prefix
 from ..utils.fonts.starrail_fonts import (
@@ -74,7 +73,7 @@ UP_LIST = {
 
 async def _draw_card(
     img: Image.Image,
-    xy_point: Tuple[int, int],
+    xy_point: tuple[int, int],
     card_type: str,
     name: str,
     gacha_num: int,
@@ -116,7 +115,7 @@ async def random_emo_pic(level: int) -> Image.Image:
     return Image.open(emo_fold)
 
 
-async def get_level_from_list(ast: int, lst: List) -> int:
+async def get_level_from_list(ast: int, lst: list) -> int:
     if ast == 0:
         return 3
 
@@ -133,7 +132,6 @@ def check_up(name: str, _time: str) -> bool:
     for char in UP_LIST:
         if char == name:
             time = UP_LIST[char]
-            s_time = datetime(*time[0])
             e_time = datetime(*time[1])
             gacha_time = datetime.strptime(_time, "%Y-%m-%d %H:%M:%S")
             if gacha_time > e_time:
@@ -142,12 +140,57 @@ def check_up(name: str, _time: str) -> bool:
     return True
 
 
-async def draw_gachalogs_img(uid: str, ev: Event) -> Union[bytes, str]:
+def _is_same_five_star_record(
+    o: dict[str, str | int | bool],
+    n: dict[str, str | int | bool],
+) -> bool:
+    o_id = str(o["id"]) if "id" in o else ""
+    n_id = str(n["id"]) if "id" in n else ""
+    if o_id and n_id and o_id == n_id:
+        return True
+    o_name = str(o["name"]) if "name" in o else ""
+    n_name = str(n["name"]) if "name" in n else ""
+    if o_name and n_name and o_name == n_name and len(o_id) >= 10 and len(n_id) >= 10:
+        return o_id[:10] == n_id[:10]
+    return False
+
+
+async def draw_gachalogs_img(uid: str, ev: Event) -> bytes | str:
     path = PLAYER_PATH / str(uid) / "gacha_logs.json"
-    if not path.exists():
+    wx_path = PLAYER_PATH / str(uid) / "gacha_logs_wx.json"
+    if not path.exists() and not wx_path.exists():
         return f"你还没有跃迁数据噢~\n请使用命令`{prefix}导入抽卡链接`更新跃迁数据~"
-    with Path.open(path, encoding="UTF-8") as f:
-        gacha_data = json.load(f)
+
+    gacha_data: dict[str, str | int | dict[str, list[dict[str, str | int | bool]]]] = {}
+    if path.exists():
+        with Path.open(path, encoding="UTF-8") as f:
+            loaded_data = json.load(f)
+            if isinstance(loaded_data, dict):
+                gacha_data = loaded_data
+
+    wx_data: dict[str, str | int | dict[str, int] | dict[str, list[dict[str, str | int | bool]]]] = {}
+    if wx_path.exists():
+        with Path.open(wx_path, encoding="UTF-8") as f:
+            loaded_wx = json.load(f)
+            if isinstance(loaded_wx, dict):
+                wx_data = loaded_wx
+
+    if not gacha_data and not wx_data:
+        return f"你还没有跃迁数据噢~\n请使用命令`{prefix}导入抽卡链接`更新跃迁数据~"
+
+    if not gacha_data:
+        data_time_val = str(wx_data["data_time"]) if "data_time" in wx_data else ""
+        gacha_data = {
+            "uid": str(uid),
+            "data_time": data_time_val,
+            "normal_gacha_num": 0,
+            "begin_gacha_num": 0,
+            "char_gacha_num": 0,
+            "weapon_gacha_num": 0,
+            "char_collabo_gacha_num": 0,
+            "weapon_collabo_gacha_num": 0,
+            "data": {},
+        }
 
     # 数据初始化
     total_data = {}
@@ -176,7 +219,10 @@ async def draw_gachalogs_img(uid: str, ev: Event) -> Union[bytes, str]:
             "long_gacha_data": {"time": 0, "num": 0},
         }
         # 拿到数据列表
-        data_list = gacha_data["data"][i]
+        raw_pool_data = (
+            gacha_data["data"] if "data" in gacha_data and isinstance(gacha_data["data"], dict) else {}
+        )
+        data_list = raw_pool_data[i] if i in raw_pool_data and isinstance(raw_pool_data[i], list) else []
         # 初始化开关
         is_not_first = True
         # 开始初始化抽卡数
@@ -243,24 +289,112 @@ async def draw_gachalogs_img(uid: str, ev: Event) -> Union[bytes, str]:
 
         # 计算已多少抽
         total_data[i]["remain"] = num - 1
+        old_remain = total_data[i]["remain"]
+
+        # 合并新抽卡记录五星列表
+        raw_wx_pool_data = (
+            wx_data["data"] if wx_data and "data" in wx_data and isinstance(wx_data["data"], dict) else {}
+        )
+        wx_pool_list = (
+            raw_wx_pool_data[i] if i in raw_wx_pool_data and isinstance(raw_wx_pool_data[i], list) else []
+        )
+        # wx_pool_list 按最新在最前, 倒序即为时间升序
+        wx_chronological = list(reversed(wx_pool_list))
+
+        new_fives: list[dict[str, str | int | bool]] = []
+        if wx_chronological:
+            if not total_data[i]["list"]:
+                new_fives = wx_chronological
+            else:
+                matched_wx = set()
+                old_idx = 0
+                for wx_idx, n in enumerate(wx_chronological):
+                    for oi in range(old_idx, len(total_data[i]["list"])):
+                        if _is_same_five_star_record(total_data[i]["list"][oi], n):
+                            matched_wx.add(wx_idx)
+                            old_idx = oi + 1
+                            break
+                new_fives = [
+                    wx_chronological[idx] for idx in range(len(wx_chronological)) if idx not in matched_wx
+                ]
+
+        for item in new_fives:
+            data_item = dict(item)
+            data_item["rank_type"] = "5"
+            gacha_cnt = (
+                data_item["gacha_count"]
+                if "gacha_count" in data_item and isinstance(data_item["gacha_count"], int)
+                else 0
+            )
+            data_item["gacha_num"] = gacha_cnt
+            if "is_up" not in data_item or data_item["is_up"] is None:
+                if data_item["name"] in NORMAL_LIST:
+                    data_item["is_up"] = False
+                elif data_item["name"] in UP_LIST:
+                    t_str = str(data_item["time"]) if "time" in data_item else ""
+                    data_item["is_up"] = check_up(str(data_item["name"]), t_str)
+                else:
+                    data_item["is_up"] = True
+            else:
+                data_item["is_up"] = bool(data_item["is_up"])
+
+            total_data[i]["list"].append(data_item)
+            total_data[i]["r_num"].append(data_item["gacha_num"])
+            total_data[i]["normal_list"].append(data_item)
+            if data_item["is_up"]:
+                total_data[i]["up_list"].append(data_item)
+            total_data[i]["total"] += 1
+
+            # 扩展抽卡时间跨度
+            if "time" in data_item and isinstance(data_item["time"], str) and data_item["time"]:
+                if not total_data[i]["time_range"]:
+                    total_data[i]["time_range"] = data_item["time"]
+                elif "~" in total_data[i]["time_range"]:
+                    start_t = total_data[i]["time_range"].split("~")[0]
+                    total_data[i]["time_range"] = f"{start_t}~{data_item['time']}"
+                else:
+                    total_data[i]["time_range"] += f"~{data_item['time']}"
+
+        # 无旧数据时补齐 time_range 区间
+        if not data_list and total_data[i]["list"]:
+            first_item = total_data[i]["list"][0]
+            last_item = total_data[i]["list"][-1]
+            first_t = str(first_item["time"]) if "time" in first_item else ""
+            last_t = str(last_item["time"]) if "time" in last_item else ""
+            if first_t and last_t and first_t != last_t:
+                total_data[i]["time_range"] = f"{first_t}~{last_t}"
+            elif first_t:
+                total_data[i]["time_range"] = first_t
+
+        # 已xx抽未出金取新的抽卡记录
+        if wx_data and "pity_counts" in wx_data and isinstance(wx_data["pity_counts"], dict):
+            if i in wx_data["pity_counts"]:
+                total_data[i]["remain"] = int(wx_data["pity_counts"][i])
+
+        # 抽卡总数补偿计算
+        pool_num_key = f"{CHANGE_MAP[i]}_gacha_num"
+        current_gacha_num = int(gacha_data[pool_num_key]) if pool_num_key in gacha_data else 0
+        if current_gacha_num == 0 and total_data[i]["r_num"]:
+            gacha_data[pool_num_key] = sum(total_data[i]["r_num"]) + total_data[i]["remain"]
+        else:
+            fresh_pulls = sum(int(item["gacha_num"]) for item in new_fives if "gacha_num" in item)
+            if total_data[i]["remain"] > old_remain:
+                fresh_pulls += total_data[i]["remain"] - old_remain
+            gacha_data[pool_num_key] = current_gacha_num + fresh_pulls
 
         # 计算平均抽卡数
         if len(total_data[i]["normal_list"]) == 0:
             total_data[i]["avg"] = 0
         else:
             total_data[i]["avg"] = float(
-                "{:.2f}".format(
-                    sum(total_data[i]["r_num"]) / len(total_data[i]["r_num"])
-                )
+                "{:.2f}".format(sum(total_data[i]["r_num"]) / len(total_data[i]["r_num"]))
             )
         # 计算平均up数量
         if len(total_data[i]["up_list"]) == 0:
             total_data[i]["avg_up"] = 0
         else:
             total_data[i]["avg_up"] = float(
-                "{:.2f}".format(
-                    sum(total_data[i]["r_num"]) / len(total_data[i]["up_list"])
-                )
+                "{:.2f}".format(sum(total_data[i]["r_num"]) / len(total_data[i]["up_list"]))
             )
 
         # 计算抽卡类型
@@ -268,37 +402,20 @@ async def draw_gachalogs_img(uid: str, ev: Event) -> Union[bytes, str]:
         if gacha_data[f"{CHANGE_MAP[i]}_gacha_num"] <= 40:
             total_data[i]["type"] = "佛系型"
         # 如果长时抽卡总数占据了总抽卡数的70%
-        elif (
-            total_data[i]["long_gacha_data"]["num"]
-            / gacha_data[f"{CHANGE_MAP[i]}_gacha_num"]
-            >= 0.7
-        ):
+        elif total_data[i]["long_gacha_data"]["num"] / gacha_data[f"{CHANGE_MAP[i]}_gacha_num"] >= 0.7:
             total_data[i]["type"] = "随缘型"
         # 如果短时抽卡总数占据了总抽卡数的70%
-        elif (
-            total_data[i]["short_gacha_data"]["num"]
-            / gacha_data[f"{CHANGE_MAP[i]}_gacha_num"]
-            >= 0.7
-        ):
+        elif total_data[i]["short_gacha_data"]["num"] / gacha_data[f"{CHANGE_MAP[i]}_gacha_num"] >= 0.7:
             total_data[i]["type"] = "规划型"
         # 如果抽卡数量远远大于标称抽卡数量
-        elif (
-            total_data[i]["all_time"] / 30000
-            <= gacha_data[f"{CHANGE_MAP[i]}_gacha_num"]
-        ):
+        elif total_data[i]["all_time"] / 30000 <= gacha_data[f"{CHANGE_MAP[i]}_gacha_num"]:
             # 如果长时抽卡数量大于短时抽卡数量
-            if (
-                total_data[i]["long_gacha_data"]["num"]
-                >= total_data[i]["short_gacha_data"]["num"]
-            ):
+            if total_data[i]["long_gacha_data"]["num"] >= total_data[i]["short_gacha_data"]["num"]:
                 total_data[i]["type"] = "规划型"
             else:
                 total_data[i]["type"] = "氪金型"
         # 如果抽卡数量远远小于标称抽卡数量
-        elif (
-            total_data[i]["all_time"] / 32000
-            >= gacha_data[f"{CHANGE_MAP[i]}_gacha_num"] * 2
-        ):
+        elif total_data[i]["all_time"] / 32000 >= gacha_data[f"{CHANGE_MAP[i]}_gacha_num"] * 2:
             total_data[i]["type"] = "仓鼠型"
 
     # 常量偏移数据
@@ -320,14 +437,7 @@ async def draw_gachalogs_img(uid: str, ev: Event) -> Union[bytes, str]:
     img = Abg3_img.copy()
     img = await get_color_bg(
         800,
-        1600
-        + 1200
-        + normal_y
-        + char_y
-        + weapon_y
-        + char_collab_y
-        + weapon_collab_y
-        + begin_y,
+        1600 + 1200 + normal_y + char_y + weapon_y + char_collab_y + weapon_collab_y + begin_y,
     )
     gacha_title = bg1_img.copy()
     gacha_title.paste(char_pic, (297, 81), char_pic)
@@ -350,29 +460,17 @@ async def draw_gachalogs_img(uid: str, ev: Event) -> Union[bytes, str]:
     for index, i in enumerate(type_list):
         title = Image.open(TEXT_PATH / "bg2.png")
         if i == "群星跃迁":
-            level = await get_level_from_list(
-                total_data[i]["avg"], [54, 61, 67, 73, 80]
-            )
+            level = await get_level_from_list(total_data[i]["avg"], [54, 61, 67, 73, 80])
         elif i == "始发跃迁":
-            level = await get_level_from_list(
-                total_data[i]["avg"], [10, 20, 30, 40, 50]
-            )
+            level = await get_level_from_list(total_data[i]["avg"], [10, 20, 30, 40, 50])
         elif i == "光锥跃迁":
-            level = await get_level_from_list(
-                total_data[i]["avg_up"], [62, 75, 88, 99, 111]
-            )
+            level = await get_level_from_list(total_data[i]["avg_up"], [62, 75, 88, 99, 111])
         elif i == "角色跃迁":
-            level = await get_level_from_list(
-                total_data[i]["avg_up"], [74, 87, 99, 105, 120]
-            )
+            level = await get_level_from_list(total_data[i]["avg_up"], [74, 87, 99, 105, 120])
         elif i == "光锥联动跃迁":
-            level = await get_level_from_list(
-                total_data[i]["avg_up"], [62, 75, 88, 99, 111]
-            )
+            level = await get_level_from_list(total_data[i]["avg_up"], [62, 75, 88, 99, 111])
         elif i == "角色联动跃迁":
-            level = await get_level_from_list(
-                total_data[i]["avg_up"], [74, 87, 99, 105, 120]
-            )
+            level = await get_level_from_list(total_data[i]["avg_up"], [74, 87, 99, 105, 120])
         else:
             continue
 
@@ -421,9 +519,7 @@ async def draw_gachalogs_img(uid: str, ev: Event) -> Union[bytes, str]:
             "mm",
         )
         y_extend += (
-            (1 + ((total_data[type_list[index - 1]]["total"] - 1) // 5)) * single_y
-            if index != 0
-            else 0
+            (1 + ((total_data[type_list[index - 1]]["total"] - 1) // 5)) * single_y if index != 0 else 0
         )
         y = 350 + index * 400 + y_extend
         img.paste(title, (0, y), title)

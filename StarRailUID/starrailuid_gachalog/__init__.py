@@ -5,9 +5,10 @@ from gsuid_core.sv import SV
 from gsuid_core.utils.database.api import get_uid
 from gsuid_core.utils.database.models import GsBind
 
-from ..utils.error_reply import UID_HINT
 from .draw_gachalogs import draw_gachalogs_img
 from .get_gachalogs import save_gachalogs
+from .get_gachalogs_new import save_gachalogs_new
+from ..utils.error_reply import UID_HINT
 
 sv_gacha_log = SV("sr抽卡记录")
 sv_get_gachalog_by_link = SV("sr导入抽卡链接", area="DIRECT")
@@ -16,7 +17,7 @@ sv_get_gachalog_by_link = SV("sr导入抽卡链接", area="DIRECT")
 @sv_gacha_log.on_fullmatch(("抽卡记录", "抽卡纪录"))
 async def send_gacha_log_card_info(bot: Bot, ev: Event):
     logger.info("开始执行[sr抽卡记录]")
-    uid, user_id = await get_uid(bot, ev, GsBind, "sr", True, pattern=r"\d{9}")
+    uid, _ = await get_uid(bot, ev, GsBind, "sr", True, pattern=r"\d{9}")
     if uid is None:
         return await bot.send(UID_HINT)
     im = await draw_gachalogs_img(uid, ev)
@@ -39,4 +40,19 @@ async def get_gachalog_by_link(bot: Bot, ev: Event):
         is_force = True
     await bot.send(f"UID{uid}开始执行[刷新抽卡记录],需要一定时间...请勿重复触发!")
     im = await save_gachalogs(uid, gacha_url, None, is_force)
+    return await bot.send(im)
+
+
+@sv_gacha_log.on_command(("刷新抽卡纪录","刷新抽卡记录"))
+async def test_get_gachalog(bot: Bot, ev: Event):
+    logger.info("开始执行[sr刷新抽卡记录]")
+    uid = await get_uid(bot, ev, GsBind, "sr", False, None)
+    if uid is None:
+        return await bot.send(UID_HINT)
+    is_force = False
+    if ev.command.startswith("强制"):
+        logger.info("[WARNING] 本次为强制刷新")
+        is_force = True
+    await bot.send(f"UID{uid}开始执行[刷新抽卡记录],需要一定时间...请勿重复触发!")
+    im = await save_gachalogs_new(uid, bot, ev, is_force)
     return await bot.send(im)

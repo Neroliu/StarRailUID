@@ -2,8 +2,9 @@ import asyncio
 import copy
 import time
 from typing import Any, Dict, Literal, Optional, Tuple, Union
-from venv import logger
 
+import aiohttp
+from gsuid_core.logger import logger
 from gsuid_core.utils.api.mys.api import ApiEndpoint
 from gsuid_core.utils.api.mys.tools import (
     generate_os_ds,
@@ -28,7 +29,9 @@ from ..sruid_utils.api.mys.api import (
     STAR_RAIL_AVATAR_DETAIL,
     STAR_RAIL_AVATAR_INFO,
     STAR_RAIL_EXCHANGE_CODE,
+    STAR_RAIL_FIVE_STAR_LIST,
     STAR_RAIL_GACHA_LOG,
+    STAR_RAIL_GACHA_LOGIN,
     STAR_RAIL_INDEX,
     STAR_RAIL_LDGACHA_LOG,
     STAR_RAIL_LIVE_INDEX,
@@ -309,6 +312,92 @@ class MysApi(_MysApi):
         if isinstance(data, Dict):
             data = msgspec.convert(data["data"], type=GachaLog)
         return data
+
+    async def login_gacha_account(
+        self,
+        uid: str,
+        cookie: str,
+    ) -> str | None:
+        headers = {
+            "Origin": "https://act.mihoyo.com",
+            "Referer": "https://act.mihoyo.com/",
+            "User-Agent": (
+                "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+                "AppleWebKit/537.36 (KHTML, like Gecko) "
+                "Chrome/130.0.0.0 Safari/537.36"
+            ),
+            "Cookie": cookie,
+        }
+        payload = {
+            "game_biz": "hkrpg_cn",
+            "lang": "zh-cn",
+            "region": RECOGNIZE_SERVER.get(str(uid)[0], "prod_gf_cn"),
+            "uid": str(uid),
+        }
+        try:
+            async with aiohttp.ClientSession() as session:
+                async with session.post(STAR_RAIL_GACHA_LOGIN.get(), json=payload, headers=headers) as resp:
+                    data = await resp.json()
+                    if data.get("retcode") != 0:
+                        logger.error(f"[mys_api] 抽卡账号登录失败: {data}")
+                        return None
+                    e_token = resp.cookies.get("e_hkrpg_token")
+                    token_val = e_token.value if e_token else ""
+                    if not token_val and "Set-Cookie" in resp.headers:
+                        for part in resp.headers.get("Set-Cookie", "").split(";"):
+                            if "e_hkrpg_token=" in part:
+                                token_val = part.split("e_hkrpg_token=")[-1].strip()
+                                break
+                    if token_val:
+                        return f"{cookie}; e_hkrpg_token={token_val}"
+                    return cookie
+        except Exception as e:
+            logger.error(f"[mys_api] 抽卡账号登录请求异常: {e}")
+            return None
+
+    async def get_gacha_five_star_list(
+        self,
+        uid: str,
+        cookie: str,
+        gacha_type: str,
+        device_id: str | None = None,
+        max_id: str | None = None,
+        version_id: str | None = None,
+    ) -> dict | int:
+        server_id = RECOGNIZE_SERVER.get(str(uid)[0], "prod_gf_cn")
+        params = {
+            "game_biz": "hkrpg_cn",
+            "badge_region": server_id,
+            "badge_uid": str(uid),
+            "region": server_id,
+            "uid": str(uid),
+            "gacha_type": gacha_type,
+        }
+        if max_id:
+            params["max_id"] = max_id
+        if version_id:
+            params["version_id"] = version_id
+
+        headers = {
+            "Origin": "https://act.mihoyo.com",
+            "Referer": "https://act.mihoyo.com/",
+            "User-Agent": (
+                "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+                "AppleWebKit/537.36 (KHTML, like Gecko) "
+                "Chrome/130.0.0.0 Safari/537.36"
+            ),
+            "Cookie": cookie,
+            "x-rpc-device_id": device_id or "3c183681c7f983cb",
+            "x-rpc-platform": "pc",
+            "x-rpc-jump_source": "2",
+        }
+        return await self._mys_request(
+            url=STAR_RAIL_FIVE_STAR_LIST.get(),
+            method="GET",
+            header=headers,
+            params=params,
+            game_name="sr",
+        )
 
     async def get_avatar_info(
         self, uid: str, avatar_id: int, need_wiki: bool = False
